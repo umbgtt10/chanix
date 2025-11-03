@@ -1,9 +1,6 @@
 use crossbeam::channel::Receiver;
 use log::{debug, error};
 use std::fmt::Debug;
-use std::sync::atomic::Ordering;
-use std::sync::{Arc, atomic::AtomicBool};
-use std::time::Duration;
 
 use crate::types::ConsumerLogic;
 
@@ -27,7 +24,7 @@ where
         }
     }
 
-    pub fn start(&self, receiver: Receiver<Result>, shutdown: Arc<AtomicBool>) {
+    pub fn start(&self, receiver: Receiver<Result>, shutdown: Receiver<()>) {
         let name = self.name.clone();
         let result_processor = self.result_processor.clone();
 
@@ -45,11 +42,9 @@ where
                             break;
                         }
                     }
-                    default(Duration::from_millis(10)) => {
-                        if shutdown.load(Ordering::SeqCst) {
-                            debug!("[Consumer: {name}] Shutting down due to signal.");
-                            break;
-                        }
+                    recv(shutdown) -> _ => {
+                        debug!("[Consumer: {name}] Shutting down due to signal.");
+                        break;
                     }
                 }
             }

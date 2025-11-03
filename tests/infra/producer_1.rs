@@ -1,13 +1,9 @@
 use crate::infra::input_events::EventType1;
 use crate::infra::input_events::InputEvents;
 use chanix::producer::Producer;
-use crossbeam::channel::Sender;
+use crossbeam::channel::{Receiver, Sender};
 use log::debug;
 use log::warn;
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
 use std::thread;
 
 #[derive(Clone)]
@@ -32,7 +28,7 @@ impl Producer<InputEvents> for Producer1 {
         matches!(input_event, InputEvents::EventType1(_))
     }
 
-    fn start(&self, sender: Sender<InputEvents>, shutdown: Arc<AtomicBool>) {
+    fn start(&self, sender: Sender<InputEvents>, shutdown: Receiver<()>) {
         let name = self.name.clone();
         let start_id = self.start_id;
         let end_id = self.end_id;
@@ -41,18 +37,21 @@ impl Producer<InputEvents> for Producer1 {
             debug!("[Producer: {name}] Started.");
 
             for id in start_id..=end_id {
-                if shutdown.load(Ordering::SeqCst) {
-                    debug!("[Producer: {name}] Shutting down.");
-                    break;
-                }
+                crossbeam::select! {
+                    recv(shutdown) -> _ => {
+                        debug!("[Producer: {name}] Shutting down.");
+                        break;
+                    }
+                    default => {
+                        let message =
+                            InputEvents::EventType1(EventType1::new(id, &format!("Value {}", id)));
 
-                let message =
-                    InputEvents::EventType1(EventType1::new(id, &format!("Value {}", id)));
-
-                debug!("[Producer: {name}] Sending: {:?}", message);
-                if sender.send(message).is_err() {
-                    warn!("[Producer: {name}] Failed to send a message. The channel is closed.");
-                    break;
+                        debug!("[Producer: {name}] Sending: {:?}", message);
+                        if sender.send(message).is_err() {
+                            warn!("[Producer: {name}] Failed to send a message. The channel is closed.");
+                            break;
+                        }
+                    }
                 }
             }
 
