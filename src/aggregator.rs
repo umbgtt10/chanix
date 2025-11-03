@@ -5,10 +5,9 @@ use log::error;
 
 use crate::types::{AggregationLogic, ArcedProducer};
 
-#[derive(Clone)]
 pub struct Aggregator<Input, State, Result>
 where
-    Input: Debug + Clone + Send + Sync + 'static,
+    Input: Debug + Send + Sync + 'static,
     State: Clone + Send + Sync + 'static,
     Result: Debug + Clone + Send + Sync + 'static,
 {
@@ -17,7 +16,7 @@ where
 
 impl<Input, State, Result> Aggregator<Input, State, Result>
 where
-    Input: Debug + Clone + Send + Sync + 'static,
+    Input: Debug + Send + Sync + 'static,
     State: Clone + Send + Sync + 'static,
     Result: Debug + Clone + Send + Sync + 'static,
 {
@@ -66,13 +65,26 @@ where
 
 impl<Input, State, Result> Default for Aggregator<Input, State, Result>
 where
-    Input: Debug + Clone + Send + Sync + 'static,
+    Input: Debug + Send + Sync + 'static,
     State: Clone + Send + Sync + 'static,
     Result: Debug + Clone + Send + Sync + 'static,
 {
     fn default() -> Self {
         Self {
             producers_and_logic: Vec::new(),
+        }
+    }
+}
+
+impl<Input, State, Result> Clone for Aggregator<Input, State, Result>
+where
+    Input: Debug + Send + Sync + 'static,
+    State: Clone + Send + Sync + 'static,
+    Result: Debug + Clone + Send + Sync + 'static,
+{
+    fn clone(&self) -> Self {
+        Self {
+            producers_and_logic: self.producers_and_logic.clone(),
         }
     }
 }

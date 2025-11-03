@@ -5,7 +5,6 @@ use std::thread::JoinHandle;
 
 use crate::types::ConsumerLogic;
 
-#[derive(Clone)]
 pub struct Consumer<Result>
 where
     Result: Debug + Send + Sync + 'static,

@@ -9,7 +9,7 @@ use std::thread;
 
 pub struct Pipeline<Input, State, Result>
 where
-    Input: Debug + Clone + Send + Sync + 'static,
+    Input: Debug + Send + Sync + 'static,
     State: Clone + Send + Sync + 'static,
     Result: Debug + Clone + Send + Sync + 'static,
 {
@@ -25,7 +25,7 @@ where
 }
 impl<Input, State, Result> Pipeline<Input, State, Result>
 where
-    Input: Debug + Clone + Send + Sync + 'static,
+    Input: Debug + Send + Sync + 'static,
     State: Clone + Send + Sync + 'static,
     Result: Debug + Clone + Send + Sync + 'static,
 {
@@ -170,7 +170,7 @@ where
 
 impl<Input, State, Result> Default for Pipeline<Input, State, Result>
 where
-    Input: Debug + Clone + Send + Sync + 'static,
+    Input: Debug + Send + Sync + 'static,
     State: Clone + Send + Sync + 'static,
     Result: Debug + Clone + Send + Sync + 'static,
 {
@@ -194,7 +194,7 @@ where
 
 impl<Input, State, Result> Clone for Pipeline<Input, State, Result>
 where
-    Input: Debug + Clone + Send + Sync + 'static,
+    Input: Debug + Send + Sync + 'static,
     State: Clone + Send + Sync + 'static,
     Result: Debug + Clone + Send + Sync + 'static,
 {
