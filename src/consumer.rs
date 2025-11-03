@@ -1,6 +1,7 @@
 use crossbeam::channel::Receiver;
 use log::{debug, error};
 use std::fmt::Debug;
+use std::thread::JoinHandle;
 
 use crate::types::ConsumerLogic;
 
@@ -24,7 +25,7 @@ where
         }
     }
 
-    pub fn start(&self, receiver: Receiver<Result>, shutdown: Receiver<()>) {
+    pub fn start(&self, receiver: Receiver<Result>, shutdown: Receiver<()>) -> JoinHandle<()> {
         let name = self.name.clone();
         let result_processor = self.result_processor.clone();
 
@@ -50,6 +51,6 @@ where
             }
 
             debug!("[Consumer: {name}] Exited.");
-        });
+        })
     }
 }

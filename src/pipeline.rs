@@ -19,6 +19,7 @@ where
     shutdown_senders: Arc<Mutex<Vec<Sender<()>>>>, // Sends shutdown signal to all components
     shutdown_receiver: Option<Receiver<()>>, // Receives shutdown signal in pipeline task
     task_handle: Option<thread::JoinHandle<()>>, // Handle for the main task loop
+    consumer_handles: Vec<thread::JoinHandle<()>>, // Handles for consumer threads
     aggregator: Aggregator<Input, State, Result>,
     consumers: Vec<Consumer<Result>>, // Consumers connected to the pipeline
 }
@@ -88,7 +89,14 @@ where
 
         if let Some(handle) = self.task_handle.take() {
             if let Err(err) = handle.join() {
-                error!("[Pipeline] Error during shutdown: {err:?}");
+                error!("[Pipeline] Error during pipeline task shutdown: {err:?}");
+            }
+        }
+
+        // Join all consumer threads
+        for handle in self.consumer_handles {
+            if let Err(err) = handle.join() {
+                error!("[Pipeline] Error during consumer shutdown: {err:?}");
             }
         }
 
@@ -136,7 +144,7 @@ where
         }
     }
 
-    fn start_consumers(&self) {
+    fn start_consumers(&mut self) {
         let mut senders = self.consumer_senders.lock().unwrap();
         let mut shutdown_senders = self.shutdown_senders.lock().unwrap();
         for consumer in &self.consumers {
@@ -144,7 +152,8 @@ where
             senders.push(sender);
             let (shutdown_sender, shutdown_receiver) = channel::unbounded();
             shutdown_senders.push(shutdown_sender);
-            consumer.start(receiver, shutdown_receiver);
+            let handle = consumer.start(receiver, shutdown_receiver);
+            self.consumer_handles.push(handle);
         }
     }
 
@@ -176,6 +185,7 @@ where
             shutdown_senders: Arc::new(Mutex::new(vec![shutdown_sender])),
             shutdown_receiver: Some(shutdown_receiver),
             task_handle: None,
+            consumer_handles: Vec::new(),
             aggregator: Aggregator::default(),
             consumers: Vec::new(),
         }
