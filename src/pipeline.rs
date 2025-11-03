@@ -1,11 +1,12 @@
 use crate::aggregator::Aggregator;
 use crate::consumer::Consumer;
 use crate::types::{AggregationLogic, ArcedProducer};
-use crossbeam::channel::{Receiver, Sender};
+use crossbeam::channel::{self, Receiver, Sender};
 use std::fmt::Debug;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread;
+use std::time::Duration;
 
 pub struct Pipeline<Input, State, Result>
 where
@@ -68,8 +69,7 @@ where
 
     pub fn shutdown(mut self) {
         println!("[Pipeline] Sending shutdown signal...");
-        self.shutdown_flag
-            .store(true, std::sync::atomic::Ordering::SeqCst);
+        self.shutdown_flag.store(true, Ordering::SeqCst);
 
         if let Some(handle) = self.task_handle.take()
             && let Err(err) = handle.join()
@@ -116,8 +116,8 @@ where
                         }
                     }
                 }
-                default(std::time::Duration::from_millis(10)) => {
-                    if shutdown_flag.load(std::sync::atomic::Ordering::SeqCst) {
+                default(Duration::from_millis(10)) => {
+                    if shutdown_flag.load(Ordering::SeqCst) {
                         println!("[Pipeline] Shutdown signal received.");
                         break;
                     }
@@ -129,7 +129,7 @@ where
     fn start_consumers(&self) {
         let mut senders = self.consumer_senders.lock().unwrap();
         for consumer in &self.consumers {
-            let (sender, receiver) = crossbeam::channel::unbounded();
+            let (sender, receiver) = channel::unbounded();
             senders.push(sender);
             consumer.start(receiver, self.shutdown_flag.clone());
         }
@@ -151,7 +151,7 @@ where
     Result: Debug + Clone + Send + Sync + 'static,
 {
     fn default() -> Self {
-        let (producer_sender, producer_receiver) = crossbeam::channel::unbounded::<Input>();
+        let (producer_sender, producer_receiver) = channel::unbounded::<Input>();
 
         Self {
             producer_sender,
