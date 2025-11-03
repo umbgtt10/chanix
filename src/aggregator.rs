@@ -1,6 +1,8 @@
 use std::fmt::Debug;
 use std::sync::Arc;
 
+use log::error;
+
 use crate::types::{AggregationLogic, ArcedProducer};
 
 #[derive(Clone)]
@@ -28,6 +30,7 @@ where
         self
     }
 
+    #[must_use]
     pub fn get_producers(&self) -> Vec<ArcedProducer<Input>> {
         self.producers_and_logic
             .iter()
@@ -35,12 +38,14 @@ where
             .collect()
     }
 
+    #[must_use]
     pub fn get_producers_and_logic(
         &self,
     ) -> Vec<(ArcedProducer<Input>, AggregationLogic<Input, State, Result>)> {
         self.producers_and_logic.clone()
     }
 
+    #[must_use]
     pub fn aggregate_event(
         &self,
         input_event: Input,
@@ -53,10 +58,7 @@ where
         if let Some((_, logic)) = logic {
             (logic)(input_event, current_state)
         } else {
-            eprintln!(
-                "No aggregation logic found for event type: {:?}",
-                input_event
-            );
+            error!("No aggregation logic found for event type: {input_event:?}");
             (current_state.as_ref().clone(), None)
         }
     }

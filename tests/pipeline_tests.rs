@@ -3,6 +3,7 @@ use crate::infra::{
     producer_2::Producer2, producer_3::Producer3,
 };
 use chanix::{consumer::Consumer, pipeline::Pipeline};
+use log::info;
 use std::{
     sync::{
         Arc, LazyLock,
@@ -64,7 +65,7 @@ static CONSUMER_1_FLAG: AtomicBool = AtomicBool::new(false);
 static CONSUMER_2_FLAG: AtomicBool = AtomicBool::new(false);
 
 pub fn consumer_logic1(event: AggregatedEvent) {
-    println!("[Consumer 1] Processed: {:?}", event);
+    info!("[Consumer 1] Processed: {:?}", event);
 
     if event == *AGGREGATED_RESULT_EVENT {
         CONSUMER_1_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -72,7 +73,7 @@ pub fn consumer_logic1(event: AggregatedEvent) {
 }
 
 pub fn consumer_logic2(event: AggregatedEvent) {
-    println!("[Consumer 2] Processed: {:?}", event);
+    info!("[Consumer 2] Processed: {:?}", event);
 
     if event == *AGGREGATED_RESULT_EVENT {
         CONSUMER_2_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
@@ -80,7 +81,9 @@ pub fn consumer_logic2(event: AggregatedEvent) {
 }
 
 #[test]
-fn pipeline_single_producer_single_consumer_test() {
+fn pipeline_three_producers_two_consumers_test() {
+    let _ = env_logger::builder().is_test(true).try_init();
+
     // Arrange
     let producer1 = Producer1::new("Producer1", 1, 5);
     let producer2 = Producer2::new("Producer2", 11, 20);

@@ -1,6 +1,9 @@
 use crossbeam::channel::Receiver;
+use log::{debug, error};
 use std::fmt::Debug;
+use std::sync::atomic::Ordering;
 use std::sync::{Arc, atomic::AtomicBool};
+use std::time::Duration;
 
 use crate::types::ConsumerLogic;
 
@@ -29,32 +32,29 @@ where
         let result_processor = self.result_processor.clone();
 
         std::thread::spawn(move || {
-            println!("[Consumer: {name}] Starting...");
+            debug!("[Consumer: {name}] Starting...");
 
             loop {
                 crossbeam::select! {
                     recv(receiver) -> msg => {
-                        match msg {
-                            Ok(result_event) => {
-                                println!("[Consumer: {name}] Processing: {:?}", result_event);
-                                result_processor(result_event);
-                            }
-                            Err(_) => {
-                                println!("[Consumer: {name}] Channel closed.");
-                                break;
-                            }
+                        if let Ok(result_event) = msg {
+                            debug!("[Consumer: {name}] Processing: {result_event:?}");
+                            result_processor(result_event);
+                        } else {
+                            error!("[Consumer: {name}] Channel closed.");
+                            break;
                         }
                     }
-                    default(std::time::Duration::from_millis(10)) => {
-                        if shutdown.load(std::sync::atomic::Ordering::SeqCst) {
-                            println!("[Consumer: {name}] Shutting down due to signal.");
+                    default(Duration::from_millis(10)) => {
+                        if shutdown.load(Ordering::SeqCst) {
+                            debug!("[Consumer: {name}] Shutting down due to signal.");
                             break;
                         }
                     }
                 }
             }
 
-            println!("[Consumer: {name}] Exited.");
+            debug!("[Consumer: {name}] Exited.");
         });
     }
 }

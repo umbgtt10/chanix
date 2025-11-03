@@ -2,6 +2,7 @@ use crate::aggregator::Aggregator;
 use crate::consumer::Consumer;
 use crate::types::{AggregationLogic, ArcedProducer};
 use crossbeam::channel::{self, Receiver, Sender};
+use log::{debug, error};
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -42,6 +43,8 @@ where
         self
     }
 
+    /// # Panics
+    /// Panics if the pipeline has already been started (i.e., `producer_receiver` is `None`).
     pub fn start(&mut self, initial_state: State) -> &mut Self {
         let producer_receiver = self
             .producer_receiver
@@ -53,12 +56,12 @@ where
 
         self.task_handle = Some(thread::spawn(move || {
             Self::pipeline_task(
-                producer_receiver,
-                aggregated_senders,
-                shutdown_flag,
-                aggregator,
+                &producer_receiver,
+                &aggregated_senders,
+                &shutdown_flag,
+                &aggregator,
                 initial_state,
-            )
+            );
         }));
 
         self.start_consumers();
@@ -68,23 +71,23 @@ where
     }
 
     pub fn shutdown(mut self) {
-        println!("[Pipeline] Sending shutdown signal...");
+        debug!("[Pipeline] Sending shutdown signal...");
         self.shutdown_flag.store(true, Ordering::SeqCst);
 
         if let Some(handle) = self.task_handle.take()
             && let Err(err) = handle.join()
         {
-            eprintln!("[Pipeline] Error during shutdown: {:?}", err);
+            error!("[Pipeline] Error during shutdown: {err:?}");
         }
 
-        println!("[Pipeline] Shutdown complete.");
+        debug!("[Pipeline] Shutdown complete.");
     }
 
     fn pipeline_task(
-        producer_receiver: Receiver<Input>,
-        aggregated_senders: Arc<Mutex<Vec<Sender<Result>>>>,
-        shutdown_flag: Arc<AtomicBool>,
-        aggregator: Aggregator<Input, State, Result>,
+        producer_receiver: &Receiver<Input>,
+        aggregated_senders: &Arc<Mutex<Vec<Sender<Result>>>>,
+        shutdown_flag: &Arc<AtomicBool>,
+        aggregator: &Aggregator<Input, State, Result>,
         initial_state: State,
     ) {
         let mut current_state = Arc::new(initial_state);
@@ -92,33 +95,30 @@ where
         loop {
             crossbeam::select! {
                 recv(producer_receiver) -> msg => {
-                    match msg {
-                        Ok(input_event) => {
-                            let (new_state, aggregated_result) = aggregator.aggregate_event(
-                                input_event,
-                                &current_state,
-                            );
+                    if let Ok(input_event) = msg {
+                         let (new_state, aggregated_result) = aggregator.aggregate_event(
+                             input_event,
+                             &current_state,
+                         );
 
-                            current_state = Arc::new(new_state);
+                         current_state = Arc::new(new_state);
 
-                            if let Some(event) = aggregated_result {
-                                let senders = aggregated_senders.lock().unwrap();
-                                for sender in senders.iter() {
-                                    if sender.send(event.clone()).is_err() {
-                                        eprintln!("Failed to send aggregated event to a consumer.");
-                                    }
-                                }
-                            }
-                        }
-                        Err(_) => {
-                            println!("[Pipeline] Producer channel closed.");
-                            break;
-                        }
-                    }
+                         if let Some(event) = aggregated_result {
+                             let senders = aggregated_senders.lock().unwrap();
+                             for sender in senders.iter() {
+                                 if sender.send(event.clone()).is_err() {
+                                     error!("Failed to send aggregated event to a consumer.");
+                                 }
+                             }
+                         }
+                     } else {
+                         error!("[Pipeline] Producer channel closed.");
+                         break;
+                     }
                 }
                 default(Duration::from_millis(10)) => {
                     if shutdown_flag.load(Ordering::SeqCst) {
-                        println!("[Pipeline] Shutdown signal received.");
+                        debug!("[Pipeline] Shutdown signal received.");
                         break;
                     }
                 }
@@ -172,13 +172,14 @@ where
     Result: Debug + Clone + Send + Sync + 'static,
 {
     fn clone(&self) -> Self {
-        if self.task_handle.is_some() {
-            panic!("Cannot clone a running Pipeline.");
-        }
-
-        if !self.consumers.is_empty() {
-            panic!("Cannot clone a Pipeline with consumers.");
-        }
+        assert!(
+            self.task_handle.is_none(),
+            "Cannot clone a running Pipeline."
+        );
+        assert!(
+            self.consumers.is_empty(),
+            "Cannot clone a Pipeline with consumers."
+        );
 
         let mut pipeline = Self::default();
         let producers = self.aggregator.get_producers_and_logic();

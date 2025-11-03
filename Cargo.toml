@@ -2,6 +2,15 @@
 name = "chanix"
 version = "0.1.0"
 edition = "2024"
+authors = ["umberto Gotti <umbertogotti1979@gmail.com>"]
+description = "A thread-based event processing pipeline"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/umbgtt10/chanix"
 
 [dependencies]
 crossbeam = "0.8"
+env_logger = "0.11"
+log = "0.4.28"
+
+[dev-dependencies]
+env_logger = "0.11"
