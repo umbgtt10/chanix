@@ -1,7 +1,7 @@
 [package]
 name = "chanix"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
 authors = ["umberto Gotti <umbertogotti1979@gmail.com>"]
 description = "A thread-based event processing pipeline"
 license = "MIT OR Apache-2.0"

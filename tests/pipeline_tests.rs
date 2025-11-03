@@ -4,14 +4,7 @@ use crate::infra::{
 };
 use chanix::{consumer::Consumer, pipeline::Pipeline};
 use log::info;
-use std::{
-    sync::{
-        Arc, LazyLock,
-        atomic::{AtomicBool, Ordering},
-    },
-    thread,
-    time::Duration,
-};
+use std::sync::Arc;
 
 mod infra;
 
@@ -54,29 +47,16 @@ pub fn aggregation_logic_event_type3(
     }
 }
 
-static AGGREGATED_RESULT_EVENT: LazyLock<AggregatedEvent> = LazyLock::new(|| AggregatedEvent {
-    int: 30,
-    float: 20.0,
-    string: "Value 5".to_string(),
-    count: 25,
-});
+fn create_consumer_logic(
+    expected_event: AggregatedEvent,
+    completion_sender: crossbeam::channel::Sender<()>,
+) -> impl Fn(AggregatedEvent) {
+    move |event: AggregatedEvent| {
+        info!("[Consumer] Processed: {:?}", event);
 
-static CONSUMER_1_FLAG: AtomicBool = AtomicBool::new(false);
-static CONSUMER_2_FLAG: AtomicBool = AtomicBool::new(false);
-
-pub fn consumer_logic1(event: AggregatedEvent) {
-    info!("[Consumer 1] Processed: {:?}", event);
-
-    if event == *AGGREGATED_RESULT_EVENT {
-        CONSUMER_1_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
-    }
-}
-
-pub fn consumer_logic2(event: AggregatedEvent) {
-    info!("[Consumer 2] Processed: {:?}", event);
-
-    if event == *AGGREGATED_RESULT_EVENT {
-        CONSUMER_2_FLAG.store(true, std::sync::atomic::Ordering::SeqCst);
+        if event == expected_event {
+            let _ = completion_sender.send(());
+        }
     }
 }
 
@@ -85,6 +65,19 @@ fn pipeline_three_producers_two_consumers_test() {
     let _ = env_logger::builder().is_test(true).try_init();
 
     // Arrange
+    let expected_event = AggregatedEvent {
+        int: 30,
+        float: 20.0,
+        string: "Value 5".to_string(),
+        count: 25,
+    };
+
+    let (completion_sender1, completion_receiver1) = crossbeam::channel::unbounded();
+    let (completion_sender2, completion_receiver2) = crossbeam::channel::unbounded();
+
+    let consumer_logic1 = create_consumer_logic(expected_event.clone(), completion_sender1);
+    let consumer_logic2 = create_consumer_logic(expected_event.clone(), completion_sender2);
+
     let producer1 = Producer1::new("Producer1", 1, 5);
     let producer2 = Producer2::new("Producer2", 11, 20);
     let producer3 = Producer3::new("Producer3", 21, 30);
@@ -92,6 +85,7 @@ fn pipeline_three_producers_two_consumers_test() {
     let consumer2 = Consumer::new("Consumer2", Arc::new(consumer_logic2));
     let mut pipeline = Pipeline::default();
 
+    // Act
     pipeline
         .add_producer(Arc::new(producer1), Arc::new(aggregation_logic_event_type1))
         .add_producer(Arc::new(producer2), Arc::new(aggregation_logic_event_type2))
@@ -100,12 +94,13 @@ fn pipeline_three_producers_two_consumers_test() {
         .subscribe(consumer2)
         .start(AggregatedEvent::default());
 
-    // Act
-    thread::sleep(Duration::from_millis(50));
-
     // Assert
-    assert!(CONSUMER_1_FLAG.load(Ordering::SeqCst));
-    assert!(CONSUMER_2_FLAG.load(Ordering::SeqCst));
+    completion_receiver1
+        .recv()
+        .expect("Consumer 1 should receive the expected event");
+    completion_receiver2
+        .recv()
+        .expect("Consumer 2 should receive the expected event");
 
     // Clean up
     pipeline.shutdown();

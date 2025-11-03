@@ -42,6 +42,8 @@ where
         self
     }
 
+    /// Starts the pipeline with the given initial state.
+    ///
     /// # Panics
     /// Panics if the pipeline has already been started (i.e., `producer_receiver` is `None`).
     pub fn start(&mut self, initial_state: State) -> &mut Self {
@@ -84,10 +86,10 @@ where
         }
         drop(senders);
 
-        if let Some(handle) = self.task_handle.take()
-            && let Err(err) = handle.join()
-        {
-            error!("[Pipeline] Error during shutdown: {err:?}");
+        if let Some(handle) = self.task_handle.take() {
+            if let Err(err) = handle.join() {
+                error!("[Pipeline] Error during shutdown: {err:?}");
+            }
         }
 
         debug!("[Pipeline] Shutdown complete.");
