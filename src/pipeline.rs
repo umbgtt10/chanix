@@ -1,6 +1,6 @@
-use crate::libs::aggregator::Aggregator;
-use crate::libs::consumer::Consumer;
-use crate::libs::types::{AggregationLogic, ArcedProducer};
+use crate::aggregator::Aggregator;
+use crate::consumer::Consumer;
+use crate::types::{AggregationLogic, ArcedProducer};
 use std::fmt::Debug;
 use std::sync::{Arc, Mutex};
 use tokio::sync::{mpsc, watch};
@@ -27,17 +27,17 @@ where
     State: Clone + Send + Sync + 'static,
     Result: Debug + Clone + Send + Sync + 'static,
 {
-    pub fn subscribe(&mut self, consumer: Consumer<Result>) -> &mut Self {
-        self.consumers.push(consumer);
-        self
-    }
-
     pub fn add_producer(
         &mut self,
         producer: ArcedProducer<Input>,
         logic: AggregationLogic<Input, State, Result>,
     ) -> &mut Self {
         self.aggregator.add_producer(producer, logic);
+        self
+    }
+
+    pub fn subscribe(&mut self, consumer: Consumer<Result>) -> &mut Self {
+        self.consumers.push(consumer);
         self
     }
 

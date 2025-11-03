@@ -1,6 +1,5 @@
+use crate::producer::Producer;
 use std::sync::Arc;
-
-use crate::libs::producer::Producer;
 
 pub type AggregationLogic<Input, State, Result> =
     Arc<dyn Fn(Input, &State) -> (State, Option<Result>) + Send + Sync + 'static>;

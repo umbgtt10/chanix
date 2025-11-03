@@ -1,6 +1,5 @@
-pub mod aggregated_event;
-pub mod input_events;
-pub mod libs;
-pub mod producer_1;
-pub mod producer_2;
-pub mod producer_3;
+pub mod aggregator;
+pub mod consumer;
+pub mod pipeline;
+pub mod producer;
+pub mod types;

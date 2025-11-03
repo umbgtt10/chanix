@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 pub struct AggregatedEvent {
     pub int: u32,
     pub float: f64,

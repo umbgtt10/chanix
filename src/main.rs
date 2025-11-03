@@ -1,3 +1,4 @@
+/*
 use chanix::aggregated_event::AggregatedEvent;
 use chanix::input_events::InputEvents;
 use chanix::libs::consumer::Consumer;
@@ -105,4 +106,10 @@ async fn main() {
     // Step 2: Shutdown the pipeline
     pipeline1.shutdown().await;
     pipeline2.shutdown().await;
+}
+ */
+
+#[tokio::main]
+async fn main() {
+    println!("Chanix library - no main executable defined.");
 }

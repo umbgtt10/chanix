@@ -1,19 +1,20 @@
-use crate::{
-    input_events::{EventType2, InputEvents},
-    libs::producer::Producer,
-};
+use std::thread;
+
+use crate::infra::input_events::EventType1;
+use crate::infra::input_events::InputEvents;
+use chanix::producer::Producer;
 use tokio::sync::{mpsc, watch};
 
 #[derive(Clone)]
-pub struct Producer2 {
+pub struct Producer1 {
     name: String,
     start_id: u32,
     end_id: u32,
 }
 
-impl Producer2 {
+impl Producer1 {
     pub fn new(name: &str, start_id: u32, end_id: u32) -> Self {
-        Producer2 {
+        Producer1 {
             name: name.to_string(),
             start_id,
             end_id,
@@ -21,9 +22,9 @@ impl Producer2 {
     }
 }
 
-impl Producer<InputEvents> for Producer2 {
+impl Producer<InputEvents> for Producer1 {
     fn matches(&self, input_event: &InputEvents) -> bool {
-        matches!(input_event, InputEvents::EventType2(_))
+        matches!(input_event, InputEvents::EventType1(_))
     }
 
     fn start(&self, sender: mpsc::UnboundedSender<InputEvents>, shutdown: watch::Receiver<bool>) {
@@ -31,7 +32,7 @@ impl Producer<InputEvents> for Producer2 {
         let start_id = self.start_id;
         let end_id = self.end_id;
 
-        tokio::spawn(async move {
+        thread::spawn(move || {
             println!("[Producer: {name}] Started.");
 
             for id in start_id..=end_id {
@@ -40,7 +41,8 @@ impl Producer<InputEvents> for Producer2 {
                     break;
                 }
 
-                let message = InputEvents::EventType2(EventType2::new(id, id as f64));
+                let message =
+                    InputEvents::EventType1(EventType1::new(id, &format!("Value {}", id)));
 
                 println!("[Producer: {name}] Sending: {:?}", message);
                 if sender.send(message).is_err() {

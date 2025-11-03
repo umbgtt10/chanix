@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use tokio::sync::{mpsc, watch};
 
-use crate::libs::types::ConsumerLogic;
+use crate::types::ConsumerLogic;
 
 #[derive(Clone)]
 pub struct Consumer<Result>
