@@ -109,7 +109,6 @@ async fn main() {
 }
  */
 
-#[tokio::main]
-async fn main() {
+fn main() {
     println!("Chanix library - no main executable defined.");
 }

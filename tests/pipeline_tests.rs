@@ -8,9 +8,9 @@ use std::{
         Arc, LazyLock,
         atomic::{AtomicBool, Ordering},
     },
+    thread,
     time::Duration,
 };
-use tokio::time::sleep;
 
 mod infra;
 
@@ -79,8 +79,8 @@ pub fn consumer_logic2(event: AggregatedEvent) {
     }
 }
 
-#[tokio::test]
-async fn pipeline_single_producer_single_consumer_test() {
+#[test]
+fn pipeline_single_producer_single_consumer_test() {
     // Arrange
     let producer1 = Producer1::new("Producer1", 1, 5);
     let producer2 = Producer2::new("Producer2", 11, 20);
@@ -98,12 +98,12 @@ async fn pipeline_single_producer_single_consumer_test() {
         .start(AggregatedEvent::default());
 
     // Act
-    sleep(Duration::from_millis(50)).await;
+    thread::sleep(Duration::from_millis(50));
 
     // Assert
     assert!(CONSUMER_1_FLAG.load(Ordering::SeqCst));
     assert!(CONSUMER_2_FLAG.load(Ordering::SeqCst));
 
     // Clean up
-    pipeline.shutdown().await;
+    pipeline.shutdown();
 }

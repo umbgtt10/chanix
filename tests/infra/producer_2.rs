@@ -1,9 +1,12 @@
-use std::thread;
-use tokio::sync::{mpsc, watch};
-
 use crate::infra::input_events::EventType2;
 use crate::infra::input_events::InputEvents;
 use chanix::producer::Producer;
+use crossbeam::channel::Sender;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+use std::thread;
 
 #[derive(Clone)]
 pub struct Producer2 {
@@ -27,7 +30,7 @@ impl Producer<InputEvents> for Producer2 {
         matches!(input_event, InputEvents::EventType2(_))
     }
 
-    fn start(&self, sender: mpsc::UnboundedSender<InputEvents>, shutdown: watch::Receiver<bool>) {
+    fn start(&self, sender: Sender<InputEvents>, shutdown: Arc<AtomicBool>) {
         let name = self.name.clone();
         let start_id = self.start_id;
         let end_id = self.end_id;
@@ -36,7 +39,7 @@ impl Producer<InputEvents> for Producer2 {
             println!("[Producer: {name}] Started.");
 
             for id in start_id..=end_id {
-                if shutdown.has_changed().unwrap_or(false) {
+                if shutdown.load(Ordering::SeqCst) {
                     println!("[Producer: {name}] Shutting down.");
                     break;
                 }

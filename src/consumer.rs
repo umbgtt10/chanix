@@ -1,5 +1,6 @@
+use crossbeam::channel::Receiver;
 use std::fmt::Debug;
-use tokio::sync::{mpsc, watch};
+use std::sync::{Arc, atomic::AtomicBool};
 
 use crate::types::ConsumerLogic;
 
@@ -16,7 +17,6 @@ impl<Result> Consumer<Result>
 where
     Result: Debug + Send + Sync + 'static,
 {
-    /// Create a new consumer
     pub fn new(name: &str, result_processor: ConsumerLogic<Result>) -> Self {
         Self {
             name: name.to_string(),
@@ -24,29 +24,32 @@ where
         }
     }
 
-    pub fn start(
-        &self,
-        mut receiver: mpsc::UnboundedReceiver<Result>,
-        mut shutdown: watch::Receiver<bool>,
-    ) {
+    pub fn start(&self, receiver: Receiver<Result>, shutdown: Arc<AtomicBool>) {
         let name = self.name.clone();
         let result_processor = self.result_processor.clone();
 
-        tokio::spawn(async move {
+        std::thread::spawn(move || {
             println!("[Consumer: {name}] Starting...");
 
             loop {
-                tokio::select! {
-                    // Process incoming events
-                    Some(result_event) = receiver.recv() => {
-                        println!("[Consumer: {name}] Processing: {:?}", result_event);
-                        result_processor(result_event); // Call the event processor
+                crossbeam::select! {
+                    recv(receiver) -> msg => {
+                        match msg {
+                            Ok(result_event) => {
+                                println!("[Consumer: {name}] Processing: {:?}", result_event);
+                                result_processor(result_event);
+                            }
+                            Err(_) => {
+                                println!("[Consumer: {name}] Channel closed.");
+                                break;
+                            }
+                        }
                     }
-
-                    // Handle shutdown signal
-                    _ = shutdown.changed() => {
-                        println!("[Consumer: {name}] Shutting down due to signal.");
-                        break;
+                    default(std::time::Duration::from_millis(10)) => {
+                        if shutdown.load(std::sync::atomic::Ordering::SeqCst) {
+                            println!("[Consumer: {name}] Shutting down due to signal.");
+                            break;
+                        }
                     }
                 }
             }
