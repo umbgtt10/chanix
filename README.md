@@ -1,2 +1,2 @@
 # chanix
-100% Rust channel-based event aggregation
+100% Rust channel-based event aggregator
